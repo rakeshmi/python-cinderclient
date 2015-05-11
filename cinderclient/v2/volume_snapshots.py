@@ -36,7 +36,8 @@ class Snapshot(base.Resource):
     def update(self, **kwargs):
         """Update the name or description for this snapshot."""
         self.manager.update(self, **kwargs)
-
+    def reset_permission(self):
+	self.manager.reset_permission(self)
     @property
     def progress(self):
         return self._info.get('os-extended-snapshot-attributes:progress')
@@ -67,7 +68,7 @@ class SnapshotManager(base.ManagerWithFind):
     resource_class = Snapshot
 
     def create(self, volume_id, force=False,
-               name=None, description=None, metadata=None):
+               name=None, description=None,is_public=False):
 
         """Creates a snapshot of the given volume.
 
@@ -89,7 +90,7 @@ class SnapshotManager(base.ManagerWithFind):
                              'force': force,
                              'name': name,
                              'description': description,
-                             'metadata': snapshot_metadata}}
+			     'is_public':is_public}}
         return self._create('/snapshots', body, 'snapshot')
 
     def get(self, snapshot_id):
@@ -149,6 +150,18 @@ class SnapshotManager(base.ManagerWithFind):
 
         self._update("/snapshots/%s" % base.getid(snapshot), body)
 
+    def reset_permission(self,snapshot, **kwargs):
+	#url="/snapshots/%s/temp" % base.getid(snapshot)
+	#body = {"snapshot": {"test":123}}
+	#resp, body = self.api.client.put(url, body=body)
+	#os-reset-snapshot-permission
+	print "calling reset_permission"
+	import pdb
+	#pdb.set_trace()
+	return self._action('os-reset_snapshot_permission', snapshot, {})
+	#url = '/snapshots/%s/temp' % base.getid(snapshot)
+	#self.api.client.post(url, body={})
+	return self
     def reset_state(self, snapshot, state):
         """Update the specified snapshot with the provided state."""
         return self._action('os-reset_status', snapshot, {'status': state})

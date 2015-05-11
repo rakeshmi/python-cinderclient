@@ -563,6 +563,20 @@ def do_metadata(cs, args):
 @utils.arg('--volume_id',
            help=argparse.SUPPRESS)
 @utils.service_type('volumev2')
+@utils.arg('--include-public',
+           metavar='<True|False>',
+           dest='include_public',
+           nargs='?',
+           default=False,
+           help='get the list of snapshots= tenantid + public snapshots')
+@utils.arg('--include-shared',
+           metavar='<True|False>',
+           dest='include_shared',
+           nargs='?',
+           default=False,
+           help='get the list of snapshots= tenantid + shared snapshots')
+
+
 def do_snapshot_list(cs, args):
     """Lists all snapshots."""
     all_tenants = int(os.environ.get("ALL_TENANTS", args.all_tenants))
@@ -575,12 +589,14 @@ def do_snapshot_list(cs, args):
         'display_name': args.name,
         'status': args.status,
         'volume_id': args.volume_id,
+	'include_public':args.include_public,
+	'include_shared':args.include_shared
     }
 
     snapshots = cs.volume_snapshots.list(search_opts=search_opts)
     _translate_volume_snapshot_keys(snapshots)
     utils.print_list(snapshots,
-                     ['ID', 'Volume ID', 'Status', 'Name', 'Size'])
+                     ['ID', 'Volume ID', 'Status', 'Name', 'Size','is_public','is_own'])
 
 
 @utils.arg('snapshot',
@@ -591,6 +607,32 @@ def do_snapshot_show(cs, args):
     """Shows snapshot details."""
     snapshot = _find_volume_snapshot(cs, args.snapshot)
     _print_volume_snapshot(snapshot)
+
+@utils.arg('snapshot',
+           metavar='<snapshot>',
+           help='Name or ID of the snapshot(s) to modify the permission.')
+@utils.service_type('volumev2')
+@utils.arg('--public',
+           metavar='<True|False>',
+           default=False,
+           help='set public or private to snapshot, default is private.')
+
+@utils.arg('--tenantID',
+           metavar='<tenantID>',
+           help='Share the snapshot with another tenant.')
+
+def do_snapshot_modify_attribute(cs,args):
+    """ modify the snapshot permission."""
+    kwargs={}
+    if(args.public=='True'):
+        kwargs['is_public']=True
+    else:
+        kwargs['is_public']=False
+
+    if(args.tenantID!=None):
+	kwargs['tenant_id']=args.tenantID
+    print ("is_public ====",args.public,kwargs['is_public'])
+    utils.find_resource(cs.volume_snapshots, args.snapshot).update(**kwargs)
 
 
 @utils.arg('volume',
@@ -630,6 +672,10 @@ def do_snapshot_show(cs, args):
            default=None,
            help='Snapshot metadata key and value pairs. Default=None.')
 @utils.service_type('volumev2')
+@utils.arg('--public',
+           metavar='<True|False>',
+           default=False,
+           help='set public or private to snapshot, default is private.')
 def do_snapshot_create(cs, args):
     """Creates a snapshot."""
     if args.display_name is not None:
@@ -647,7 +693,7 @@ def do_snapshot_create(cs, args):
                                           args.force,
                                           args.name,
                                           args.description,
-                                          metadata=snapshot_metadata)
+					  args.public)
     _print_volume_snapshot(snapshot)
 
 
@@ -667,6 +713,34 @@ def do_snapshot_delete(cs, args):
     if failure_count == len(args.snapshot):
         raise exceptions.CommandError("Unable to delete any of the specified "
                                       "snapshots.")
+
+
+@utils.arg('snapshot',
+           metavar='<snapshot>', nargs='+',
+           help='Name or ID of the snapshot(s) to delete.')
+@utils.service_type('volumev2')
+def do_snapshot_reset(cs, args):
+    """Reset snapshots. Permission"""
+    failure_count = 0
+    print ("cs is",cs)
+    print ("args is",args)
+    
+    for snapshot in args.snapshot:
+        try:
+	    import pdb
+	    #pdb.set_trace()
+            snapshot= _find_volume_snapshot(cs, snapshot)
+	    print ("sanpshot is",snapshot)
+            print (snapshot.__module__ + "." + snapshot.__class__.__name__)
+	    #pdb.set_trace()
+	    snapshot.reset_permission()
+        except Exception as e:
+            failure_count += 1
+            print("Reset for snapshot %s failed: %s" % (snapshot, e))
+    if failure_count == len(args.snapshot):
+        raise exceptions.CommandError("Unable to reset any of the specified "
+                                      "snapshots.")
+
 
 
 @utils.arg('snapshot', metavar='<snapshot>',
